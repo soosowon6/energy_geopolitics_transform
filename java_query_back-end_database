@@ -1,0 +1,280 @@
+import java.util.Properties;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+
+// Runs queries against a back-end database
+public class queryPP {
+	private static Properties configProps = new Properties();
+	private static String PostgreSqlServerDriver;
+	private static String PostgreSqlServerUrl;
+	private static String PostgreSqlServerUser;
+	private static String PostgreSqlServerPassword;
+	// DB Connection
+    private Connection _postgreSqlDB; //customer_DB
+    // Connection to MySQL database
+	public void openConnections() throws Exception {
+        // open connections to TWO databases: movie and  customer databases
+		configProps.load(new FileInputStream("dbconn.config"));
+        PostgreSqlServerDriver = configProps.getProperty("PostgreSqlServerDriver");
+        PostgreSqlServerUrl = configProps.getProperty("PostgreSqlServerUrl");
+        PostgreSqlServerUser = configProps.getProperty("PostgreSqlServerUser");
+        PostgreSqlServerPassword = configProps.getProperty("PostgreSqlServerPassword");
+	// load jdbc driver for MySQL
+		// Class.forName(MySqlServerDriver).newInstance();
+		// open a connection to your mySQL database that contains the movie database
+		// _mySqlDB = DriverManager.getConnection(MySqlServerUrl, // database
+		// 		MySqlServerUser, // user
+		// 		MySqlServerPassword); // password
+    // load jdbc driver for PostgreSQL */
+        Class.forName(PostgreSqlServerDriver).newInstance();
+         // connection string for PostgreSQL */
+        String PostgreSqlConnectionString = PostgreSqlServerUrl+"?ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory&user="+
+        		PostgreSqlServerUser+"&password=" + PostgreSqlServerPassword;
+        // open a connection to your postgreSQL database that contains the customer database */
+        _postgreSqlDB = DriverManager.getConnection(PostgreSqlConnectionString);
+	}
+
+	public void closeConnections() throws Exception {
+		// _mySqlDB.close();
+        _postgreSqlDB.close();
+	}
+
+	public void begin_transaction() throws Exception {
+		_postgreSqlDB.setAutoCommit(false);
+		_begin_transaction_read_write_stmt.executeUpdate();
+	}
+	public void commit_transaction() throws Exception {
+		_commit_transaction_stmt.executeUpdate();
+		_postgreSqlDB.setAutoCommit(false);
+	}
+	public void rollback_transaction() throws Exception {
+		_rollback_transaction_stmt.executeUpdate();
+		_postgreSqlDB.setAutoCommit(false);
+	}
+
+	public void prepareStatements() throws Exception {
+		_begin_transaction_read_write_stmt = _postgreSqlDB.prepareStatement(_begin_transaction_read_write_sql);
+		_commit_transaction_stmt = _postgreSqlDB.prepareStatement(_commit_transaction_sql);
+		_rollback_transaction_stmt = _postgreSqlDB.prepareStatement(_rollback_transaction_sql);
+		plans_list_stmt = _postgreSqlDB.prepareStatement(plans_list_sql);
+		valid_plan_stmt = _postgreSqlDB.prepareStatement(valid_plan_sql);
+		update_plan_stmt = _postgreSqlDB.prepareStatement(update_plan_sql);
+		_customer_login_statement = _postgreSqlDB.prepareStatement(_customer_login_sql);
+        customer_name_stmt = _postgreSqlDB.prepareStatement(customer_name_sql);
+		plan_max_queries_stmt = _postgreSqlDB.prepareStatement(plan_max_queries_sql);
+		query_log_stmt = _postgreSqlDB.prepareStatement(query_log_sql);
+		query_type_stmt = _postgreSqlDB.prepareStatement(query_type_sql);
+		query_gdp_stmt = _postgreSqlDB.prepareStatement(query_gdp_sql);
+		list_country_codes_stmt = _postgreSqlDB.prepareStatement(list_country_codes_sql);
+		with_population_stmt = _postgreSqlDB.prepareStatement(with_population_sql);
+		query_ccode_stmt = _postgreSqlDB.prepareStatement(query_ccode_sql);
+		query_country_stmt = _postgreSqlDB.prepareStatement(query_country_sql);
+
+	}
+
+  private String _begin_transaction_read_write_sql = "BEGIN TRANSACTION";
+	private PreparedStatement _begin_transaction_read_write_stmt;
+	private String _commit_transaction_sql = "COMMIT";
+	private PreparedStatement _commit_transaction_stmt;
+	private String _rollback_transaction_sql = "ROLLBACK";
+	private PreparedStatement _rollback_transaction_stmt;
+
+	private String _customer_login_sql =
+	"SELECT * FROM subscriber WHERE login = ? and password = ?";
+	private PreparedStatement _customer_login_statement;
+	private String customer_name_sql = "SELECT first_name,last_name FROM subscriber WHERE cid=?";
+	private PreparedStatement customer_name_stmt;
+
+	// Canned queries
+	private String plans_list_sql = "SELECT * FROM subscription";
+	private PreparedStatement plans_list_stmt;
+	private String valid_plan_sql = "SELECT pid FROM subscription WHERE pid = ?";
+	private PreparedStatement valid_plan_stmt;
+	private String plan_max_queries_sql = "SELECT max_queries FROM subscription pr join subscriber mc on pr.pid = mc.pid WHERE mc.cid = ?";
+	private PreparedStatement plan_max_queries_stmt;
+	private String update_plan_sql = "UPDATE subscriber SET pid = ? WHERE cid = ?";
+	private PreparedStatement update_plan_stmt;
+	private String query_log_sql = "SELECT query_count FROM query_log WHERE cid = ?";
+	private PreparedStatement query_log_stmt;
+	private String query_type_sql = "select name,pp_id from countries c join power_plants pp on c.code=pp.country_code where pp_type = ?";
+	private PreparedStatement query_type_stmt;
+	private String query_gdp_sql = "select name,to_char(gdp,'999,999,999,999,999.99') from countries c join gross_domestic_product g on c.code=g.country_code where gdp > ? and year = ? order by gdp desc";
+	private PreparedStatement query_gdp_stmt;
+	private String list_country_codes_sql = "select code from countries";
+	private PreparedStatement list_country_codes_stmt;
+	private String with_population_sql = "select name,pp_type,to_char(sum(pg.est_gen),'999,999,999,999,999.99') total_est_gen from (select name,pp_id,pp_type,code from countries c join power_plants pp on c.code=pp.country_code group by name,pp_id,pp_type,code) as x join power_generation pg on pg.pp_id=x.pp_id join population po on po.country_code=x.code where est_gen is not null and population between ? and ? group by name,pp_type order by pp_type,sum(est_gen) desc";
+	private PreparedStatement with_population_stmt;
+	private String query_ccode_sql = "select name,code from countries where name like ?";
+	private PreparedStatement query_ccode_stmt;
+	private String query_country_sql = "select c.name,pp.pp_type,to_char(sum(pg.est_gen),'999,999,999,999,999.99') as estimated_generation from countries c join power_plants pp on c.code=pp.country_code join power_generation pg on pp.pp_id=pg.pp_id where pg.est_gen is not null and code = ? group by pp.pp_type,c.name order by sum(pg.est_gen) desc";
+	private PreparedStatement query_country_stmt;
+
+	public void query_country_code(String country) throws Exception { // function name as 'query_code' dysfunctionl
+		query_country_stmt.clearParameters();
+		query_country_stmt.setString(1,country);
+		
+		ResultSet country_set = query_country_stmt.executeQuery();
+		System.out.println(country_set);
+		while (country_set.next()){
+			String c2name=country_set.getString(1);
+			String u2name = c2name.substring(0,1).toUpperCase()+c2name.substring(1);
+			String pptype=country_set.getString(2);
+			String est_gen=country_set.getString(3);
+			System.out.printf("Country: %-18s\t\t Plant type: %-18s \t\t Est Power Prod: %s\n",u2name,pptype,est_gen);
+		}
+	}
+	public void query_ccode(String namelike) throws Exception {
+		query_ccode_stmt.clearParameters();
+		String s = "%" + namelike + "%";
+		query_ccode_stmt.setString(1,s);
+		
+		ResultSet ccode_set = query_ccode_stmt.executeQuery();
+		while (ccode_set.next()){
+			String cname=ccode_set.getString(1);
+			String ccode=ccode_set.getString(2);
+			System.out.printf("Country: %-40s\t\t Country code: %s\n",cname,ccode);
+		}
+	}
+	public void countries_with_population(int pop1, int pop2) throws Exception {
+		with_population_stmt.clearParameters();
+		with_population_stmt.setInt(1,pop1);
+		with_population_stmt.setInt(2,pop2);
+		ResultSet pop_set = with_population_stmt.executeQuery();
+		while (pop_set.next()){
+			String name=pop_set.getString(1);
+			String pptype=pop_set.getString(2);
+			String estgen=pop_set.getString(3);
+			System.out.printf("Country: %-30s\t\t Power plant type: %-30s\t\t Estimated power Generated: %s\n",name,pptype,estgen);
+		}
+	}
+	public void query_gdp(Double gdp,int year) throws Exception {
+		query_gdp_stmt.clearParameters();
+		query_gdp_stmt.setDouble(1,gdp);
+		query_gdp_stmt.setInt(2,year);
+		
+		ResultSet gdp_set = query_gdp_stmt.executeQuery();
+		while (gdp_set.next()){
+			String cname=gdp_set.getString(1);
+			String uname = cname.substring(0,1).toUpperCase()+cname.substring(1);
+			String gdp2=gdp_set.getString(2);
+			System.out.printf("Country: %-30s\t\t GDP: %s\n",uname,gdp2);
+		}
+	}
+	public void query_type(String type) throws Exception {
+		query_type_stmt.clearParameters();
+		query_type_stmt.setString(1,type);
+		
+		ResultSet type_set = query_type_stmt.executeQuery();
+		while (type_set.next()){
+			String cname=type_set.getString(1);
+			String uname = cname.substring(0,1).toUpperCase()+cname.substring(1);
+			String ppID=type_set.getString(2);
+			System.out.printf("Country: %-30s\t\t Power plant ID: %s\n",uname,ppID);
+		}
+	}
+	public void transaction_list_country_codes() throws Exception {
+		ResultSet ccodes_set=list_country_codes_stmt.executeQuery();
+		while(ccodes_set.next()) {
+			String code = ccodes_set.getString(1);
+			System.out.printf("%s"+" ",code);
+		}
+		ccodes_set.close();
+	}
+	public boolean helper_check_plan(int plan_id) throws Exception {
+		// // is plan_id a valid plan id?  you have to figure out
+		valid_plan_stmt.clearParameters();
+		valid_plan_stmt.setInt(1,plan_id);
+		ResultSet validSet = valid_plan_stmt.executeQuery();
+		boolean valid = validSet.next();
+		validSet.close();
+		return valid;
+	}
+	public String helper_compute_customer_name(int cid) 
+	throws Exception {
+		customer_name_stmt.clearParameters();
+		customer_name_stmt.setInt(1, cid);
+
+		ResultSet name_set = customer_name_stmt.executeQuery();
+		name_set.next();
+		String full_name = name_set.getString("first_name") + " " + name_set.getString("last_name");
+		name_set.close();
+		return full_name;
+	}
+	public boolean helper_check_movie(String movie_id) throws Exception {
+		return true;
+	}
+	public int transaction_login(String name, String password) throws Exception {
+		int cid;
+
+		_customer_login_statement.clearParameters();
+		_customer_login_statement.setString(1,name);
+		_customer_login_statement.setString(2,password);
+	    ResultSet cid_set = _customer_login_statement.executeQuery();
+	    if (cid_set.next()) cid = cid_set.getInt(1);
+		else cid = -1;
+		return(cid);
+	}
+	public void transaction_personal_data(int cid) throws Exception {
+		begin_transaction();
+		System.out.println("Welcome, " + helper_compute_customer_name(cid));
+		System.out.println("There are " + mov_2_rent_remaining(cid) + " queries left to view!");
+		commit_transaction();
+	}
+	public void transaction_choose_plan(int cid, int pid) throws Exception {
+		try {
+			begin_transaction();
+			update_plan_stmt.clearParameters();
+			update_plan_stmt.setInt(1,pid);
+			update_plan_stmt.setInt(2,cid);
+			update_plan_stmt.executeUpdate();
+			int mov_2_rent = mov_2_rent_remaining(cid);
+			if (mov_2_rent < 0) {
+				rollback_transaction();
+				System.out
+					.println("You can switch to this plan after resubscribing.");
+			} else {
+				commit_transaction();
+			}
+		} catch (SQLException e) {
+			try {
+				rollback_transaction();
+			} catch (SQLException se) {
+			}
+		}
+	}
+	public void transaction_list_plans() throws Exception {
+		ResultSet plans_set=plans_list_stmt.executeQuery();
+		while(plans_set.next()) {
+			System.out.printf("%d\t%-20s\tmax queries \t%d \t$%d",
+				plans_set.getInt("pid"),
+				plans_set.getString("plan_name"),
+				plans_set.getInt("max_queries"),
+				plans_set.getInt("fee_month"));
+			System.out.println();
+		}
+		plans_set.close();
+	}
+	public int mov_2_rent_remaining(int cid) throws Exception {
+		plan_max_queries_stmt.clearParameters();
+		plan_max_queries_stmt.setInt(1,cid);
+		query_log_stmt.clearParameters();
+		query_log_stmt.setInt(1,cid);
+
+		ResultSet max_queries_set = plan_max_queries_stmt.executeQuery();
+		ResultSet query_log_set = query_log_stmt.executeQuery();
+		max_queries_set.next();
+		int mr = max_queries_set.getInt(1);
+		max_queries_set.close();
+		query_log_set.next();
+		int ch = query_log_set.getInt(1);
+		query_log_set.close();
+		return mr - ch;
+	}
+}
