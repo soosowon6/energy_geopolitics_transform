@@ -11,10 +11,7 @@ https://www.belfercenter.org/project/geopolitics-energy-project#:~:text=the%20la
 
 THE SQL COMPONENT
  The current system stores its data and information in six relational database tables or relations within a single
-PostgreSQL database in servers maintained by the K-State computer science department. These servers are
-accessible via phpPgAdmin or PuTTY Secure Shell connections from the Windows operating system. Data security is
-deferred to the K-State server security protocols. Discussions of web page encoding and data encryption are beyond
-the scope of this project.
+PostgreSQL database accessible via phpPgAdmin or PuTTY Secure Shell connections from the Windows operating system. 
 
  There are a minimum of design criteria as the six relations do not require flexibility for change. Because of the tuple
 basis of the relations, a RDBMS was deemed suitable. Given that the current database holds time series or historical
