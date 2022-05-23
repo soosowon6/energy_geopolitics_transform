@@ -1,0 +1,103 @@
+DROP TABLE IF EXISTS countries CASCADE;
+create table countries(
+    code char(2) not null primary key,
+    name varchar(50),
+    continent varchar (30),
+    inc_level varchar (30),
+    constraint countries_uq unique (name)
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS population CASCADE;
+create table population(
+    year int not null,
+    population int,
+    country_code char (2),
+    constraint population_fk1
+        foreign key(country_code)
+        references countries(code)    
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS gross_domestic_product CASCADE;
+create table gross_domestic_product(
+    year int not null,
+    GDP double precision,
+    country_code char (2),
+    constraint gross_domestic_product_fk1
+        foreign key(country_code)
+        references countries(code)    
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS power_plants CASCADE;
+create table power_plants(
+    pp_id varchar(20) not null primary key,
+    pp_type varchar(18),
+    country_code char (2),
+    latitude double precision,
+    longitude double precision,
+    constraint power_plants_fk1
+        foreign key(country_code)
+        references countries(code)    
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS power_generation CASCADE;
+create table power_generation(
+    year int not null,
+    est_gen double precision, -- estimated power generation
+    pp_id varchar(20),
+    constraint power_generation_fk1
+        foreign key(pp_id)
+        references power_plants(pp_id)    
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS pollutants CASCADE;
+create table pollutants(
+    year int not null,
+    generated double precision, -- pollutants generated
+    country_code char (2),
+    constraint pollutants_fk1
+        foreign key(country_code)
+        references countries(code)    
+); -- there are no additional keys
+
+DROP TABLE IF EXISTS subscription CASCADE
+-- CREATE TABLE plan_rent(
+CREATE TABLE subscription(
+    pid int not null primary key,
+    plan_name varchar(10) not null,
+    max_queries int not null,
+    fee_month int not null,
+    constraint pid_uq2 unique(pid));
+
+DROP TABLE IF EXISTS subscriber CASCADE
+-- CREATE TABLE mem_cust(
+CREATE TABLE subscriber(
+    cid int not null primary key,
+    pid int not null,
+    login varchar(50) not null,
+    password varchar(25) not null,
+    first_name  varchar(50) not null,
+    last_name varchar(50) not null,
+    constraint mem_cust_fk1
+        foreign key(pid) references plan_rent(pid),
+    constraint cid_uq2 unique(cid))
+;
+
+DROP TABLE IF EXISTS query_log CASCADE;
+CREATE TABLE query_log(
+    cid int not null,
+    query_count int not null,
+    primary key(cid),
+    constraint query_log_fk1
+        foreign key(cid) references subscriber(cid)
+);
+
+insert into plan_rent(pid,plan_name,max_queries,fee_month) values
+(1,'basic_plan',10,1),
+(2,'plus',300,3),
+(3,'super',6000,5),
+(4,'ten',100000,8)
+;
+insert into mem_cust(cid,pid,login,password,first_name,last_name) values
+(1,3,'jack','jack','jack','dongarra'),
+(2,1,'jeff','jeff','jeff','ullman')
+;
