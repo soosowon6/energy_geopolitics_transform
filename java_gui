@@ -1,0 +1,153 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.StringTokenizer;
+
+public class ppAssign {
+
+	public static void usage() {
+		/* prints the choices for commands and parameters */
+		System.out.println("\n *** Please enter one of the following commands *** ");
+		System.out.println("\n *** GDP = gross domestic product *** ");
+		System.out.println("> codes");
+		System.out.println("> type [<fuel type>]");
+		System.out.println("> GDP [<gdp> <year>]");
+		System.out.println("> pop [<pop>]");
+		System.out.println("> code [<country>]");
+		System.out.println("> country [<code>]");
+		System.out.println("> plan [<plan id>]");
+		// System.out.println("> listtables [<list tables>]");
+		System.out.println("> quit");
+	}
+
+	public static void menu(int cid, queryPP q) {
+		/* cid = customer id (obtained from the command line) */
+
+		/* prepare to read the user's command and parameter(s) */
+		String response = null;
+
+		while (true) {
+			try { usage();
+				BufferedReader r = new BufferedReader(new InputStreamReader(
+						System.in));
+				/* before prompting the user, tell her/him how many movies he can still rent */
+				q.transaction_personal_data(cid);
+				System.out.print("> ");
+
+				response = r.readLine();
+
+				StringTokenizer st = new StringTokenizer(response);
+				String t = st.nextToken();
+
+				if (t.equals("plan")) {
+					/* choose a new rental plan, or, if none is given, then list all available plans */
+					if (st.hasMoreTokens()) {
+						int plan_id = Integer.parseInt(st.nextToken());
+						/* need to check that plan_id is a valid plan id in the database, */
+						/* if yes, then set the new plan for the current customer */
+						/* if not, then list all available plans */
+						boolean correct_plan = q.helper_check_plan(plan_id);
+						if (correct_plan) {
+							System.out.println("Switching to plan " + plan_id);
+							q.transaction_choose_plan(cid, plan_id);
+						} else {
+							System.out.println("Incorrect plan id " + plan_id
+									+ "\nAvailable plans are:");
+							q.transaction_list_plans();
+						}
+					} else {
+						System.out.println("Available plans:");
+						q.transaction_list_plans();
+					}
+				}
+
+				else if (t.equals("type")) {
+					String type = st.nextToken("\n").trim();
+					System.out.println("Querying fuel type " + type);
+					q.query_type(type);
+				}
+
+				else if (t.equals("GDP")) {
+					Double gdp = Double.parseDouble(st.nextToken());
+					int year = Integer.parseInt(st.nextToken());
+					// System.out.println(gdp);
+					System.out.println("Querying GDP levels greater than " + gdp + " for the fiscal year " + year);
+					q.query_gdp(gdp,year);
+				}
+
+				else if (t.equals("codes")) {
+					System.out.println("Country code list: ");
+					q.transaction_list_country_codes();
+				}
+
+				else if (t.equals("pop")) {
+					// get the length of 'st' -- function to get number of tokens -- reference API
+					// if (st.netnextToken() < 2) {
+					// 	System.out.println("Usage: GDP 20000000 2017");
+					// 	System.exit(1);
+					// }
+					// else {
+					int pop1 = Integer.parseInt(st.nextToken());
+					int pop2 = Integer.parseInt(st.nextToken());
+					q.countries_with_population(pop1,pop2);
+					// }
+				}
+				else if (t.equals("code")) {
+					String namelike = st.nextToken("\n").trim();
+					System.out.println("Obtaining country code for name like " + namelike);
+					q.query_ccode(namelike);
+				}
+				else if (t.equals("country")) {
+					String country = st.nextToken("\n").trim();
+					System.out.println("Retrieving data for " + country);
+					q.query_country_code(country);
+				}
+
+				else if (t.equals("quit")) {
+					System.exit(0);
+				}
+
+				else {
+					System.out.println("Error: unrecognized command '" + t
+							+ "'");
+				}
+				// else if (t.equals("listtables")) {
+				// 	System.out.println("List of table names: ");
+				// 	q.list_tables();
+				// }
+			} catch (Exception e) {
+				System.out.println("Error: " + e.getMessage());
+			}
+		}
+	}
+
+	public static void main(String[] args) {
+
+		if (args.length < 2)
+		{
+			System.out.println("Usage: java ppAssign CUSTOMER_ID CUSTOMER_PASSWORD");
+			System.exit(1);
+		}
+		
+		try {
+
+			/* prepare the database connection stuff */
+			queryPP q = new queryPP();
+			q.openConnections();
+			q.prepareStatements();
+
+			/* authenticate the user */
+			int cid = q.transaction_login(args[0], args[1]);			
+			if (cid >= 0)
+				menu(cid, q); /* menu(...) does the real work */
+			else
+				System.out.println("Sorry..."); /* innocent mistake, or malicious attack ? */
+			q.closeConnections();
+
+		} catch (Exception e) {
+			System.out.println("Error: " + e.getMessage());
+		}
+
+	}
+
+}
+
